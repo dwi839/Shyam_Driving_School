@@ -1,0 +1,43 @@
+import type { Enrollment } from "../types/enrollment";
+
+export const SEED: Enrollment[] = [
+  {
+    id: "DS-001",
+    name: "Priya Sharma",
+    email: "priya@email.com",
+    phone: "98765 43210",
+    age: "22",
+    licenseType: "Car (4W)",
+    pickupAddress: "12, Sector 15, Faridabad",
+    preferredTime: "Morning (8–11 AM)",
+    experience: "beginner",
+    status: "confirmed",
+    submittedAt: "2026-03-20T09:30:00",
+  },
+  {
+    id: "DS-002",
+    name: "Rahul Verma",
+    email: "rahul@email.com",
+    phone: "91234 56789",
+    age: "28",
+    licenseType: "Bike (2W)",
+    pickupAddress: "47, NIT Colony, Faridabad",
+    preferredTime: "Evening (4–7 PM)",
+    experience: "some",
+    status: "pending",
+    submittedAt: "2026-03-22T14:00:00",
+  },
+  {
+    id: "DS-003",
+    name: "Anita Rao",
+    email: "anita@email.com",
+    phone: "99001 12233",
+    age: "35",
+    licenseType: "Car (4W)",
+    pickupAddress: "8, Green Park, Faridabad",
+    preferredTime: "Afternoon (12–3 PM)",
+    experience: "beginner",
+    status: "completed",
+    submittedAt: "2026-03-10T11:00:00",
+  },
+];
