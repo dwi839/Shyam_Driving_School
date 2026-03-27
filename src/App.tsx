@@ -1,4 +1,19 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
+
+/** Returns whether the viewport matches a CSS media query (updates on resize). */
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia(query).matches : false
+  );
+  useLayoutEffect(() => {
+    const mq = window.matchMedia(query);
+    setMatches(mq.matches);
+    const handler = () => setMatches(mq.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [query]);
+  return matches;
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface GeoLocation { lat: number; lng: number; address: string; }
@@ -318,25 +333,67 @@ export default function App() {
 
   const stats = { total: enrollments.length, pending: enrollments.filter(e => e.status === "pending").length, confirmed: enrollments.filter(e => e.status === "confirmed").length, completed: enrollments.filter(e => e.status === "completed").length };
 
+  const isSm = useMediaQuery("(max-width: 640px)");
+  const isMd = useMediaQuery("(max-width: 900px)");
+
   // ── Styles ──
+  const pagePad = "clamp(16px, 4vw, 32px)";
   const S: Record<string, any> = {
-    app: { fontFamily: "'Syne', sans-serif", minHeight: "100vh", background: "#070710", color: "#e8e8f0" },
-    nav: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 32px", borderBottom: "1px solid #151525", background: "#070710cc", backdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 200 },
-    logo: { fontSize: 20, fontWeight: 900, letterSpacing: -1, color: "#fff" },
-    navLinks: { display: "flex", gap: 6, flexWrap: "wrap" },
-    navBtn: (active: boolean) => ({ background: active ? "#f97316" : "transparent", color: active ? "#fff" : "#666", border: active ? "none" : "1px solid #1e1e2e", borderRadius: 10, padding: "7px 16px", cursor: "pointer", fontFamily: "inherit", fontWeight: 700, fontSize: 13, transition: "all .2s" }),
-    hero: { padding: "70px 32px 50px", maxWidth: 880, margin: "0 auto", textAlign: "center" },
+    app: { fontFamily: "'Syne', sans-serif", minHeight: "100vh", background: "#070710", color: "#e8e8f0", width: "100%", maxWidth: "100%", overflowX: "hidden" as const },
+    nav: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: isSm ? 12 : 16,
+      flexWrap: isSm ? ("wrap" as const) : ("nowrap" as const),
+      flexDirection: "row" as const,
+      padding: isSm ? `12px ${pagePad}` : `16px ${pagePad}`,
+      borderBottom: "1px solid #151525",
+      background: "#070710cc",
+      backdropFilter: "blur(12px)",
+      position: "sticky" as const,
+      top: 0,
+      zIndex: 200,
+    },
+    logo: { fontSize: isSm ? 18 : 20, fontWeight: 900, letterSpacing: -1, color: "#fff", flexShrink: 0 },
+    navLinks: {
+      display: "flex",
+      gap: 6,
+      flexWrap: isSm ? ("nowrap" as const) : ("wrap" as const),
+      justifyContent: isSm ? "flex-start" : "center",
+      flex: isSm ? ("1 1 100%" as const) : ("1 1 auto" as const),
+      minWidth: 0,
+      alignItems: "center",
+      ...(isSm
+        ? { overflowX: "auto" as const, WebkitOverflowScrolling: "touch" as const, paddingBottom: 4, scrollbarWidth: "thin" as const, msOverflowStyle: "auto" as const }
+        : {}),
+    },
+    navBtn: (active: boolean) => ({
+      background: active ? "#f97316" : "transparent",
+      color: active ? "#fff" : "#666",
+      border: active ? "none" : "1px solid #1e1e2e",
+      borderRadius: 10,
+      padding: isSm ? "8px 12px" : "7px 16px",
+      cursor: "pointer",
+      fontFamily: "inherit",
+      fontWeight: 700,
+      fontSize: isSm ? 12 : 13,
+      transition: "all .2s",
+      whiteSpace: "nowrap" as const,
+      flexShrink: 0,
+    }),
+    hero: { padding: isSm ? `48px ${pagePad} 36px` : `70px ${pagePad} 50px`, maxWidth: 880, margin: "0 auto", textAlign: "center" as const },
     h1: { fontSize: "clamp(2.2rem,5.5vw,4rem)", fontWeight: 900, letterSpacing: -2, lineHeight: 1.07, marginBottom: 18 },
     accent: { color: "#f97316" },
-    sub: { fontSize: 16, color: "#777", maxWidth: 520, margin: "0 auto 36px", lineHeight: 1.65 },
-    ctaBtn: { background: "#f97316", color: "#fff", border: "none", borderRadius: 12, padding: "14px 36px", fontSize: 16, fontWeight: 800, cursor: "pointer", letterSpacing: -0.3 },
-    featureGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, padding: "0 32px 70px", maxWidth: 1100, margin: "0 auto" },
+    sub: { fontSize: "clamp(14px, 3.2vw, 16px)", color: "#777", maxWidth: 520, margin: "0 auto 36px", lineHeight: 1.65, padding: `0 ${isSm ? 4 : 0}px` },
+    ctaBtn: { background: "#f97316", color: "#fff", border: "none", borderRadius: 12, padding: isSm ? "14px 24px" : "14px 36px", fontSize: isSm ? 15 : 16, fontWeight: 800, cursor: "pointer", letterSpacing: -0.3, width: isSm ? "100%" : "auto", maxWidth: isSm ? 360 : "none" },
+    featureGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,200px),1fr))", gap: 16, padding: `0 ${pagePad} 70px`, maxWidth: 1100, margin: "0 auto", width: "100%" },
     featureCard: { background: "#0d0d1a", border: "1px solid #151525", borderRadius: 16, padding: "24px 20px" },
-    formWrap: { maxWidth: 680, margin: "0 auto", padding: "40px 32px" },
-    pageTitle: { fontSize: 28, fontWeight: 900, letterSpacing: -1, marginBottom: 4 },
+    formWrap: { maxWidth: 680, margin: "0 auto", padding: `40px ${pagePad}`, width: "100%", boxSizing: "border-box" as const },
+    pageTitle: { fontSize: isSm ? 22 : isMd ? 26 : 28, fontWeight: 900, letterSpacing: -1, marginBottom: 4 },
     pageSubtitle: { color: "#555", marginBottom: 36, fontSize: 14 },
-    card: { background: "#0d0d1a", border: "1px solid #151525", borderRadius: 18, padding: 28 },
-    fieldRow: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 },
+    card: { background: "#0d0d1a", border: "1px solid #151525", borderRadius: 18, padding: isSm ? 18 : 28, width: "100%", boxSizing: "border-box" as const },
+    fieldRow: { display: "grid", gridTemplateColumns: isSm ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 },
     fieldGroup: { display: "flex", flexDirection: "column", gap: 5 },
     label: { fontSize: 11, fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: 0.8 },
     input: { background: "#070710", border: "1px solid #1e1e30", borderRadius: 9, padding: "11px 14px", color: "#e8e8f0", fontFamily: "inherit", fontSize: 14, outline: "none" },
@@ -345,8 +402,8 @@ export default function App() {
     select: { background: "#070710", border: "1px solid #1e1e30", borderRadius: 9, padding: "11px 14px", color: "#e8e8f0", fontFamily: "inherit", fontSize: 14, outline: "none" },
     submitBtn: { width: "100%", background: "#f97316", color: "#fff", border: "none", borderRadius: 12, padding: "14px", fontSize: 16, fontWeight: 800, cursor: "pointer", marginTop: 20, fontFamily: "inherit" },
     successBox: { background: "#0a1f14", border: "1px solid #10b981", borderRadius: 14, padding: 24, textAlign: "center", marginBottom: 28 },
-    adminWrap: { maxWidth: 1200, margin: "0 auto", padding: "36px 28px" },
-    statsRow: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 28 },
+    adminWrap: { maxWidth: 1200, margin: "0 auto", padding: `36px ${pagePad}`, width: "100%", boxSizing: "border-box" as const },
+    statsRow: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 140px), 1fr))", gap: 14, marginBottom: 28 },
     statCard: (color: string) => ({ background: "#0d0d1a", border: `1px solid ${color}22`, borderRadius: 14, padding: "20px 22px", borderLeft: `4px solid ${color}` }),
     statNum: { fontSize: 32, fontWeight: 900, marginBottom: 2 },
     statLabel: { color: "#555", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 },
@@ -357,18 +414,64 @@ export default function App() {
     th: { textAlign: "left", padding: "11px 14px", fontSize: 11, color: "#444", fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, borderBottom: "1px solid #151525" },
     td: { padding: "13px 14px", borderBottom: "1px solid #101020", fontSize: 13, verticalAlign: "middle" },
     actionBtn: (color: string) => ({ background: `${color}18`, color: color, border: `1px solid ${color}33`, borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700 }),
-    modal: { position: "fixed", inset: 0, background: "#000c", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, padding: 20 },
-    modalCard: { background: "#0d0d1a", border: "1px solid #2a2a3a", borderRadius: 18, padding: 28, maxWidth: 500, width: "100%", maxHeight: "85vh", overflowY: "auto" },
-    loginWrap: { maxWidth: 380, margin: "80px auto", padding: "0 20px" },
+    modal: { position: "fixed", inset: 0, background: "#000c", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, padding: pagePad },
+    modalCard: { background: "#0d0d1a", border: "1px solid #2a2a3a", borderRadius: 18, padding: isSm ? 20 : 28, maxWidth: 500, width: "100%", maxHeight: "85vh", overflowY: "auto" as const, boxSizing: "border-box" as const },
+    loginWrap: { maxWidth: 380, margin: isSm ? "48px auto" : "80px auto", padding: `0 ${pagePad}`, width: "100%", boxSizing: "border-box" as const },
     loginCard: { background: "#0d0d1a", border: "1px solid #1e1e2e", borderRadius: 18, padding: 36 },
     tabBtn: (active: boolean) => ({ background: active ? "#151525" : "none", color: active ? "#f97316" : "#555", border: "none", borderBottom: active ? "2px solid #f97316" : "2px solid transparent", padding: "10px 18px", cursor: "pointer", fontFamily: "inherit", fontWeight: 700, fontSize: 13, transition: "all .2s" }),
     rideCard: { background: "#0d0d1a", border: "1px solid #151525", borderRadius: 16, padding: 20, marginBottom: 16 },
-    chatWrap: { maxWidth: 680, margin: "0 auto", padding: "32px 28px" },
-    chatBubble: (sender: string) => ({ alignSelf: sender === "user" ? "flex-end" : "flex-start", background: sender === "user" ? "#f97316" : "#151525", color: sender === "user" ? "#fff" : "#e8e8f0", borderRadius: sender === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px", padding: "10px 16px", maxWidth: "72%", fontSize: 14 }),
+    chatWrap: { maxWidth: 680, margin: "0 auto", padding: `32px ${pagePad}`, width: "100%", boxSizing: "border-box" as const },
+    chatBubble: (sender: string) => ({ alignSelf: sender === "user" ? "flex-end" : "flex-start", background: sender === "user" ? "#f97316" : "#151525", color: sender === "user" ? "#fff" : "#e8e8f0", borderRadius: sender === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px", padding: "10px 16px", maxWidth: isSm ? "90%" : "72%", fontSize: 14 }),
     geoBtn: { background: "#1a1a30", color: "#60a5fa", border: "1px solid #2a2a50", borderRadius: 9, padding: "10px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8 },
-    alarmBanner: { position: "fixed", top: 80, left: "50%", transform: "translateX(-50%)", background: "#f97316", color: "#fff", borderRadius: 14, padding: "14px 28px", fontWeight: 800, fontSize: 15, zIndex: 999, boxShadow: "0 8px 40px #f9731655", animation: "slideIn .4s" },
-    notifPanel: { position: "absolute", right: 0, top: "110%", background: "#0d0d1a", border: "1px solid #1e1e2e", borderRadius: 14, width: 340, maxHeight: 380, overflowY: "auto", zIndex: 500, boxShadow: "0 12px 40px #00000088" },
+    alarmBanner: {
+      position: "fixed" as const,
+      top: isSm ? 64 : 80,
+      left: "50%",
+      transform: "translateX(-50%)",
+      background: "#f97316",
+      color: "#fff",
+      borderRadius: 14,
+      padding: isSm ? "12px 16px" : "14px 28px",
+      fontWeight: 800,
+      fontSize: isSm ? 13 : 15,
+      zIndex: 999,
+      boxShadow: "0 8px 40px #f9731655",
+      animation: "slideIn .4s",
+      maxWidth: "min(calc(100vw - 24px), 420px)",
+      textAlign: "center" as const,
+      lineHeight: 1.35,
+    },
+    notifPanel: {
+      position: isSm ? ("fixed" as const) : ("absolute" as const),
+      ...(isSm
+        ? { left: 12, right: 12, top: 56, width: "auto" }
+        : { right: 0, top: "110%", width: 340 }),
+      background: "#0d0d1a",
+      border: "1px solid #1e1e2e",
+      borderRadius: 14,
+      maxHeight: isSm ? "min(70vh, 400px)" : 380,
+      overflowY: "auto" as const,
+      zIndex: 500,
+      boxShadow: "0 12px 40px #00000088",
+    },
   };
+
+  const notificationPanel = showNotifs && (
+    <div style={S.notifPanel}>
+      <div style={{ padding: "14px 16px", borderBottom: "1px solid #151525", display: "flex", justifyContent: "space-between" }}>
+        <span style={{ fontWeight: 800, fontSize: 14 }}>Notifications</span>
+        <button type="button" onClick={markNotifsRead} style={{ background: "none", border: "none", color: "#f97316", fontSize: 11, cursor: "pointer", fontWeight: 700 }}>Mark all read</button>
+      </div>
+      {adminNotifs.length === 0 && <div style={{ padding: 20, color: "#555", fontSize: 13, textAlign: "center" }}>No notifications</div>}
+      {adminNotifs.map(n => (
+        <div key={n.id} style={{ padding: "12px 16px", borderBottom: "1px solid #101020", background: n.read ? "transparent" : "#151525" }}>
+          <div style={{ fontSize: 13, fontWeight: n.read ? 400 : 700, color: n.read ? "#777" : "#e8e8f0" }}>{n.message}</div>
+          {n.data?.location && <div style={{ fontSize: 11, color: "#f97316", marginTop: 2 }}>📍 {n.data.location.address}</div>}
+          <div style={{ fontSize: 10, color: "#444", marginTop: 3 }}>{new Date(n.time).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</div>
+        </div>
+      ))}
+    </div>
+  );
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
@@ -376,9 +479,13 @@ export default function App() {
       <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body, #root { max-width: 100%; overflow-x: hidden; }
         @keyframes slideIn { from { transform: translateX(-50%) translateY(-20px); opacity:0 } to { transform: translateX(-50%) translateY(0); opacity:1 } }
         @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.6} }
         ::-webkit-scrollbar { width: 6px } ::-webkit-scrollbar-track { background: #0d0d1a } ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius:3px }
+        .nav-scroll-hide::-webkit-scrollbar { height: 4px; }
+        .nav-scroll-hide::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 2px; }
+        .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
       `}</style>
 
       {/* Slot alarm banner */}
@@ -398,9 +505,9 @@ export default function App() {
               <div style={S.label}>Feedback (optional)</div>
               <textarea style={{ ...S.input, width: "100%", height: 80, resize: "none", marginTop: 6 }} placeholder="Tell us about your experience..." value={ratingModal.tempFeedback} onChange={e => setRatingModal(r => r ? { ...r, tempFeedback: e.target.value } : null)} />
             </div>
-            <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ display: "flex", gap: 10, flexDirection: isSm ? "column" : "row" }}>
               <button style={{ ...S.submitBtn, marginTop: 0, flex: 1 }} onClick={submitRating}>Submit Feedback</button>
-              <button style={{ ...S.actionBtn("#666"), padding: "12px 20px" }} onClick={() => setRatingModal(null)}>Skip</button>
+              <button style={{ ...S.actionBtn("#666"), padding: "12px 20px", width: isSm ? "100%" : "auto" }} onClick={() => setRatingModal(null)}>Skip</button>
             </div>
           </div>
         </div>
@@ -409,33 +516,27 @@ export default function App() {
       <div style={S.app}>
         {/* NAV */}
         <nav style={S.nav}>
-          <div style={S.logo}>⚡ DriveRight</div>
-          <div style={S.navLinks}>
+          {isSm && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", gap: 12 }}>
+              <div style={S.logo}>⚡ DriveRight</div>
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <NotifBell count={unreadNotifs} onClick={() => { setShowNotifs(s => !s); if (showNotifs) markNotifsRead(); }} />
+                {notificationPanel}
+              </div>
+            </div>
+          )}
+          {!isSm && <div style={S.logo}>⚡ DriveRight</div>}
+          <div className={isSm ? "nav-scroll-hide" : undefined} style={S.navLinks}>
             {([["home","🏠 Home"],["enroll","📝 Enroll"],["rides","🚗 Rides"],["chat","💬 Chat"],["track","📍 Track"],["admin","⚙️ Admin"]] as const).map(([v, label]) => (
-              <button key={v} style={S.navBtn(view === v)} onClick={() => { setView(v); setSuccessId(null); }}>{label}</button>
+              <button type="button" key={v} style={S.navBtn(view === v)} onClick={() => { setView(v); setSuccessId(null); }}>{label}</button>
             ))}
           </div>
-          {/* Notif bell (always visible) */}
-          <div style={{ position: "relative" }}>
-            <NotifBell count={unreadNotifs} onClick={() => { setShowNotifs(s => !s); if (showNotifs) markNotifsRead(); }} />
-            {showNotifs && (
-              <div style={S.notifPanel}>
-                <div style={{ padding: "14px 16px", borderBottom: "1px solid #151525", display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontWeight: 800, fontSize: 14 }}>Notifications</span>
-                  <button onClick={markNotifsRead} style={{ background: "none", border: "none", color: "#f97316", fontSize: 11, cursor: "pointer", fontWeight: 700 }}>Mark all read</button>
-                </div>
-                {adminNotifs.length === 0 && <div style={{ padding: 20, color: "#555", fontSize: 13, textAlign: "center" }}>No notifications</div>}
-                {adminNotifs.map(n => (
-                  <div key={n.id} style={{ padding: "12px 16px", borderBottom: "1px solid #101020", background: n.read ? "transparent" : "#151525" }}>
-                    <div style={{ fontSize: 13, fontWeight: n.read ? 400 : 700, color: n.read ? "#777" : "#e8e8f0" }}>{n.message}</div>
-                    {n.data?.location && <div style={{ fontSize: 11, color: "#f97316", marginTop: 2 }}>📍 {n.data.location.address}</div>}
-                    <div style={{ fontSize: 10, color: "#444", marginTop: 3 }}>{new Date(n.time).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</div>
-                  </div>
-                ))}
-                
-              </div>
-            )}
-          </div>
+          {!isSm && (
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <NotifBell count={unreadNotifs} onClick={() => { setShowNotifs(s => !s); if (showNotifs) markNotifsRead(); }} />
+              {notificationPanel}
+            </div>
+          )}
         </nav>
 
         {/* HOME */}
@@ -523,8 +624,8 @@ export default function App() {
               {/* GPS Location */}
               <div style={{ marginBottom: 16 }}>
                 <label style={S.label}>Pickup Location *</label>
-                <div style={{ display: "flex", gap: 8, marginTop: 6, marginBottom: 8 }}>
-                  <button style={S.geoBtn} onClick={getLocation} disabled={geoLoading}>
+                <div style={{ display: "flex", gap: 8, marginTop: 6, marginBottom: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <button type="button" style={S.geoBtn} onClick={getLocation} disabled={geoLoading}>
                     {geoLoading ? "⏳ Getting GPS..." : "📡 Get Current Location"}
                   </button>
                   {form.lat && <span style={{ fontSize: 11, color: "#10b981", alignSelf: "center" }}>✓ GPS: {form.lat}, {form.lng}</span>}
@@ -545,12 +646,13 @@ export default function App() {
               </div>
 
               {/* Slot Alarm Toggle */}
-              <div style={{ background: "#070710", border: "1px solid #1e1e30", borderRadius: 10, padding: "12px 16px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
+              <div style={{ background: "#070710", border: "1px solid #1e1e30", borderRadius: 10, padding: "12px 16px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+                <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 700 }}>⏰ Slot Reminder Alarm</div>
                   <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>Get notified 10 min before your slot</div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setSlotAlarms(a => ({ ...a, [form.preferredTime]: !a[form.preferredTime] }))}
                   style={{ background: slotAlarms[form.preferredTime] ? "#f9731622" : "#151525", color: slotAlarms[form.preferredTime] ? "#f97316" : "#555", border: `1px solid ${slotAlarms[form.preferredTime] ? "#f97316" : "#2a2a3a"}`, borderRadius: 20, padding: "5px 16px", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "inherit" }}>
                   {slotAlarms[form.preferredTime] ? "ON" : "OFF"}
@@ -564,14 +666,14 @@ export default function App() {
 
         {/* RIDES VIEW */}
         {view === "rides" && (
-          <div style={{ maxWidth: 1100, margin: "0 auto", padding: "36px 28px" }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto", padding: `36px ${pagePad}`, width: "100%", boxSizing: "border-box" }}>
             <div style={S.pageTitle}>Ride Center</div>
             <div style={S.pageSubtitle}>Track ongoing rides and find available drivers</div>
 
             {/* Tabs */}
-            <div style={{ display: "flex", borderBottom: "1px solid #151525", marginBottom: 24 }}>
+            <div style={{ display: "flex", borderBottom: "1px solid #151525", marginBottom: 24, overflowX: "auto", WebkitOverflowScrolling: "touch", gap: 4 }}>
               {(["ongoing", "drivers"] as const).map(t => (
-                <button key={t} style={S.tabBtn(activeRideTab === t)} onClick={() => setActiveRideTab(t)}>
+                <button type="button" key={t} style={{ ...S.tabBtn(activeRideTab === t), flexShrink: 0, padding: isSm ? "10px 12px" : "10px 18px", fontSize: isSm ? 12 : 13 }} onClick={() => setActiveRideTab(t)}>
                   {t === "ongoing" ? "🚗 Ongoing Rides" : "👨‍✈️ Available Drivers"}
                 </button>
               ))}
@@ -582,15 +684,15 @@ export default function App() {
                 {/* My ride */}
                 {myRide && (
                   <div style={{ ...S.rideCard, border: "1px solid #f9731633" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
                       <div>
-                        <div style={{ fontWeight: 900, fontSize: 17 }}>Your Current Ride</div>
+                        <div style={{ fontWeight: 900, fontSize: isSm ? 15 : 17 }}>Your Current Ride</div>
                         <div style={{ color: "#555", fontSize: 13 }}>Ride ID: <span style={{ color: "#f97316" }}>{myRide.id}</span></div>
                       </div>
                       <RideStatusBadge status={myRide.status} />
                     </div>
-                    <MiniMap userLat={28.3909} userLng={77.3140} driverLat={28.3980} driverLng={77.3200} height={220} />
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 16 }}>
+                    <MiniMap userLat={28.3909} userLng={77.3140} driverLat={28.3980} driverLng={77.3200} height={isSm ? 200 : 220} />
+                    <div style={{ display: "grid", gridTemplateColumns: isSm ? "1fr" : "repeat(3, 1fr)", gap: 12, marginTop: 16 }}>
                       <div style={{ background: "#070710", borderRadius: 10, padding: 12, textAlign: "center" }}>
                         <div style={{ fontSize: 22, fontWeight: 900, color: "#f97316" }}>{myRide.eta}</div>
                         <div style={{ fontSize: 11, color: "#555", fontWeight: 700, textTransform: "uppercase" }}>ETA mins</div>
@@ -604,9 +706,9 @@ export default function App() {
                         <div style={{ fontSize: 11, color: "#555", fontWeight: 700, textTransform: "uppercase" }}>Driver</div>
                       </div>
                     </div>
-                    <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-                      <button style={{ ...S.actionBtn("#60a5fa"), padding: "8px 16px", fontSize: 12 }} onClick={() => { setChatRideId(myRide.id); setView("chat"); }}>💬 Chat Driver</button>
-                      {myRide.status !== "completed" && <button style={{ ...S.actionBtn("#10b981"), padding: "8px 16px", fontSize: 12 }} onClick={() => completeRide(myRide.id)}>🏁 Complete Ride</button>}
+                    <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+                      <button type="button" style={{ ...S.actionBtn("#60a5fa"), padding: "8px 16px", fontSize: 12 }} onClick={() => { setChatRideId(myRide.id); setView("chat"); }}>💬 Chat Driver</button>
+                      {myRide.status !== "completed" && <button type="button" style={{ ...S.actionBtn("#10b981"), padding: "8px 16px", fontSize: 12 }} onClick={() => completeRide(myRide.id)}>🏁 Complete Ride</button>}
                     </div>
                   </div>
                 )}
@@ -649,8 +751,8 @@ export default function App() {
                     <button key={s} style={S.filterBtn(filterSlot === s)} onClick={() => {}}>{s === "all" ? "All" : s === "idle" ? "🟢 Available" : "🔴 On Ride"}</button>
                   ))}
                 </div>
-                <MiniMap userLat={28.4089} userLng={77.3178} driverLat={28.4050} driverLng={77.3100} height={260} />
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 14, marginTop: 16 }}>
+                <MiniMap userLat={28.4089} userLng={77.3178} driverLat={28.4050} driverLng={77.3100} height={isSm ? 220 : 260} />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(100%,240px),1fr))", gap: 14, marginTop: 16 }}>
                   {drivers.map(d => (
                     <div key={d.id} style={{ ...S.rideCard, borderColor: d.status === "idle" ? "#10b98133" : d.status === "on-ride" ? "#ef444433" : "#1e1e2e" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
@@ -676,14 +778,14 @@ export default function App() {
         {/* CHAT VIEW */}
         {view === "chat" && (
           <div style={S.chatWrap}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+              <div style={{ minWidth: 0 }}>
                 <div style={S.pageTitle}>Live Chat</div>
-                <div style={{ color: "#555", fontSize: 13 }}>Ride: <span style={{ color: "#f97316" }}>{chatRideId}</span> · Driver: Suresh Kumar</div>
+                <div style={{ color: "#555", fontSize: isSm ? 12 : 13 }}>Ride: <span style={{ color: "#f97316" }}>{chatRideId}</span> · Driver: Suresh Kumar</div>
               </div>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#10b981", boxShadow: "0 0 8px #10b981", animation: "pulse 1.5s infinite" }} />
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#10b981", boxShadow: "0 0 8px #10b981", animation: "pulse 1.5s infinite", flexShrink: 0 }} />
             </div>
-            <div style={{ background: "#0d0d1a", border: "1px solid #151525", borderRadius: 16, padding: 20, height: 380, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ background: "#0d0d1a", border: "1px solid #151525", borderRadius: 16, padding: isSm ? 14 : 20, height: isSm ? "min(52vh, 360px)" : 380, minHeight: 220, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
               {chats.filter(c => c.rideId === chatRideId).map(m => (
                 <div key={m.id} style={{ display: "flex", flexDirection: "column", alignItems: m.sender === "user" ? "flex-end" : "flex-start" }}>
                   <div style={S.chatBubble(m.sender)}>{m.text}</div>
@@ -694,9 +796,9 @@ export default function App() {
               ))}
               <div ref={chatEndRef} />
             </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-              <input style={{ ...S.input, flex: 1 }} placeholder="Type a message..." value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendChat()} />
-              <button style={{ ...S.submitBtn, width: "auto", marginTop: 0, padding: "11px 20px" }} onClick={sendChat}>Send</button>
+            <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: isSm ? "wrap" : "nowrap" }}>
+              <input style={{ ...S.input, flex: isSm ? "1 1 100%" : 1, minWidth: 0, fontSize: 16 }} placeholder="Type a message..." value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendChat()} />
+              <button type="button" style={{ ...S.submitBtn, width: isSm ? "100%" : "auto", marginTop: 0, padding: "11px 20px" }} onClick={sendChat}>Send</button>
             </div>
             <div style={{ marginTop: 20, display: "flex", gap: 8, flexWrap: "wrap" }}>
               {["I'm ready outside 🙋", "Be there in 5 mins 🏃", "Running late, sorry!", "All good, thanks! 👍"].map(quick => (
@@ -708,42 +810,42 @@ export default function App() {
 
         {/* TRACK VIEW */}
         {view === "track" && (
-          <div style={{ maxWidth: 800, margin: "0 auto", padding: "36px 28px" }}>
+          <div style={{ maxWidth: 800, margin: "0 auto", padding: `36px ${pagePad}`, width: "100%", boxSizing: "border-box" }}>
             <div style={S.pageTitle}>Live Tracking</div>
             <div style={S.pageSubtitle}>Your driver's location updates every 30 seconds</div>
             {myRide ? (
               <>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                  <div>
-                    <span style={{ fontWeight: 800, fontSize: 16 }}>{myRide.driverName}</span>
-                    <span style={{ color: "#555", fontSize: 13, marginLeft: 8 }}>is on the way</span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <span style={{ fontWeight: 800, fontSize: isSm ? 14 : 16 }}>{myRide.driverName}</span>
+                    <span style={{ color: "#555", fontSize: isSm ? 12 : 13, marginLeft: 8 }}>is on the way</span>
                   </div>
                   <RideStatusBadge status={myRide.status} />
                 </div>
-                <MiniMap userLat={28.3909} userLng={77.3140} driverLat={28.3980} driverLng={77.3200} height={340} />
+                <MiniMap userLat={28.3909} userLng={77.3140} driverLat={28.3980} driverLng={77.3200} height={isSm ? 240 : 340} />
                 {/* Status bar */}
-                <div style={{ display: "flex", justifyContent: "space-between", margin: "20px 0", padding: "0 4px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", margin: "20px 0", padding: "0 4px", flexWrap: isSm ? "wrap" : "nowrap", gap: isSm ? 12 : 0 }}>
                   {["Started","Ongoing","Reached","Completed"].map((s, i) => {
                     const statusOrder = ["started","ongoing","reached","completed"];
                     const current = statusOrder.indexOf(myRide.status);
                     const done = i <= current;
                     return (
-                      <div key={s} style={{ textAlign: "center", flex: 1 }}>
+                      <div key={s} style={{ textAlign: "center", flex: isSm ? "1 1 45%" : 1, minWidth: isSm ? "40%" : 0 }}>
                         <div style={{ width: 28, height: 28, borderRadius: "50%", background: done ? "#f97316" : "#151525", border: `2px solid ${done ? "#f97316" : "#2a2a3a"}`, margin: "0 auto 6px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: done ? "#fff" : "#444" }}>{done ? "✓" : i + 1}</div>
-                        <div style={{ fontSize: 11, color: done ? "#f97316" : "#444", fontWeight: 700 }}>{s}</div>
+                        <div style={{ fontSize: isSm ? 10 : 11, color: done ? "#f97316" : "#444", fontWeight: 700 }}>{s}</div>
                       </div>
                     );
                   })}
                 </div>
-                <div style={{ background: "#0d0d1a", border: "1px solid #151525", borderRadius: 14, padding: 20 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div style={{ background: "#0d0d1a", border: "1px solid #151525", borderRadius: 14, padding: isSm ? 16 : 20 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isSm ? "1fr" : "1fr 1fr", gap: 16 }}>
                     {[["ETA", `${myRide.eta} min`],["Fare","₹"+myRide.fare],["Driver",myRide.driverName],["Status",myRide.status]].map(([k,v]) => (
                       <div key={k as string}><div style={{ fontSize: 11, color: "#555", fontWeight: 800, textTransform: "uppercase", marginBottom: 2 }}>{k}</div><div style={{ fontWeight: 700, fontSize: 15, textTransform: "capitalize" }}>{v}</div></div>
                     ))}
                   </div>
-                  <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-                    <button style={{ ...S.actionBtn("#60a5fa"), padding: "8px 16px" }} onClick={() => { setChatRideId(myRide.id); setView("chat"); }}>💬 Chat Driver</button>
-                    {myRide.status !== "completed" && <button style={{ ...S.actionBtn("#10b981"), padding: "8px 16px" }} onClick={() => completeRide(myRide.id)}>🏁 Complete Ride</button>}
+                  <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+                    <button type="button" style={{ ...S.actionBtn("#60a5fa"), padding: "8px 16px" }} onClick={() => { setChatRideId(myRide.id); setView("chat"); }}>💬 Chat Driver</button>
+                    {myRide.status !== "completed" && <button type="button" style={{ ...S.actionBtn("#10b981"), padding: "8px 16px" }} onClick={() => completeRide(myRide.id)}>🏁 Complete Ride</button>}
                   </div>
                 </div>
               </>
@@ -778,12 +880,12 @@ export default function App() {
 
         {view === "admin" && adminAuth && (
           <div style={S.adminWrap}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
-              <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
+              <div style={{ minWidth: 0 }}>
                 <div style={S.pageTitle}>Admin Dashboard</div>
                 <div style={{ color: "#555", fontSize: 13 }}>Full platform overview</div>
               </div>
-              <button onClick={() => setAdminAuth(false)} style={{ ...S.filterBtn(false), fontSize: 12 }}>Logout</button>
+              <button type="button" onClick={() => setAdminAuth(false)} style={{ ...S.filterBtn(false), fontSize: 12 }}>Logout</button>
             </div>
 
             {/* Stats */}
@@ -813,9 +915,9 @@ export default function App() {
             )}
 
             {/* Admin Tabs */}
-            <div style={{ display: "flex", borderBottom: "1px solid #151525", marginBottom: 20 }}>
+            <div style={{ display: "flex", borderBottom: "1px solid #151525", marginBottom: 20, overflowX: "auto", WebkitOverflowScrolling: "touch", gap: 4 }}>
               {(["enrollments","rides","drivers"] as const).map(t => (
-                <button key={t} style={S.tabBtn(adminTab === t)} onClick={() => setAdminTab(t)}>
+                <button type="button" key={t} style={{ ...S.tabBtn(adminTab === t), flexShrink: 0, padding: isSm ? "10px 12px" : "10px 18px", fontSize: isSm ? 12 : 13 }} onClick={() => setAdminTab(t)}>
                   {t === "enrollments" ? "📋 Enrollments" : t === "rides" ? "🚗 Rides" : "👨‍✈️ Drivers"}
                 </button>
               ))}
@@ -836,8 +938,8 @@ export default function App() {
                     <button key={s} style={S.filterBtn(filterStatus === s)} onClick={() => setFilterStatus(s)}>{s.charAt(0).toUpperCase() + s.slice(1)}</button>
                   ))}
                 </div>
-                <div style={{ background: "#0d0d1a", border: "1px solid #151525", borderRadius: 14, overflow: "hidden" }}>
-                  <table style={S.table}>
+                <div className="table-responsive" style={{ background: "#0d0d1a", border: "1px solid #151525", borderRadius: 14, maxWidth: "100%" }}>
+                  <table style={{ ...S.table, minWidth: 720 }}>
                     <thead>
                       <tr>{["ID","Name","Phone","License","Location","Slot","Status","Actions"].map(h => <th key={h} style={S.th}>{h}</th>)}</tr>
                     </thead>
@@ -903,7 +1005,7 @@ export default function App() {
 
             {/* Drivers Tab */}
             {adminTab === "drivers" && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(100%,260px),1fr))", gap: 14 }}>
                 {drivers.map(d => (
                   <div key={d.id} style={{ ...S.rideCard, borderColor: d.status === "idle" ? "#10b98133" : "#ef444422" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -942,7 +1044,7 @@ export default function App() {
                   <div style={{ fontSize: 11, color: "#f97316", marginTop: 6 }}>📍 GPS: {selectedEnrollment.location.lat}, {selectedEnrollment.location.lng}</div>
                 </div>
               )}
-              <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: isSm ? "1fr" : "1fr 1fr", gap: 14 }}>
                 {[["📧 Email", selectedEnrollment.email],["📞 Phone", selectedEnrollment.phone],["🎂 Age", selectedEnrollment.age],["🚗 License", selectedEnrollment.licenseType],["⏰ Slot", selectedEnrollment.preferredTime],["📊 Experience", selectedEnrollment.experience],["📍 Address", selectedEnrollment.pickupAddress],["📅 Joined", new Date(selectedEnrollment.submittedAt).toLocaleDateString("en-IN")]].map(([label, val]) => (
                   <div key={label as string}><div style={{ color: "#444", fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginBottom: 2 }}>{label}</div><div style={{ fontSize: 13, fontWeight: 600 }}>{val}</div></div>
                 ))}
